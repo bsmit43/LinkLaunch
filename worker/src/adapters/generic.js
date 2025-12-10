@@ -1,8 +1,9 @@
 import { BaseAdapter } from './base.js';
+import { detectFormFieldsWithAI, fillWithAISelectors } from '../utils/formDetectionAI.js';
 
 /**
  * Generic adapter that attempts to auto-detect and fill form fields.
- * Works for most simple submission forms.
+ * Falls back to AI detection when pattern matching fails.
  */
 export class GenericAdapter extends BaseAdapter {
   async submit(page, { website, directory, content }) {
@@ -122,11 +123,28 @@ export class GenericAdapter extends BaseAdapter {
       }
     }
 
+    // If pattern matching failed, try AI detection as fallback
     if (filledCount === 0) {
-      return {
-        success: false,
-        error: 'Could not auto-detect any form fields'
-      };
+      console.log(`  -> Pattern matching failed, trying AI detection...`);
+
+      const aiResult = await detectFormFieldsWithAI(page, { website, directory });
+
+      if (aiResult.success) {
+        // Fill using AI-detected selectors
+        filledCount = await fillWithAISelectors(page, aiResult.fields, { website, content });
+
+        if (filledCount > 0) {
+          console.log(`  -> AI successfully filled ${filledCount} fields`);
+        }
+      }
+
+      // If still no fields filled, return error
+      if (filledCount === 0) {
+        return {
+          success: false,
+          error: aiResult.error || 'Could not auto-detect any form fields'
+        };
+      }
     }
 
     // Try to find and click submit button

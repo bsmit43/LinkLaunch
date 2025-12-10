@@ -21,6 +21,15 @@ export const mapTypeToDb = (type: DirectoryType): DirectoryTypeDB => {
 	return type;
 };
 
+export interface AdapterConfig {
+	form_fields?: Record<string, string>;
+	submit_button?: string;
+	success_indicators?: string[];
+	requires_login?: boolean;
+	login_url?: string;
+	multi_step?: boolean;
+}
+
 export interface Directory {
 	id: string;
 	name: string;
@@ -42,6 +51,8 @@ export interface Directory {
 	review_time_days: number;
 	approval_rate: number;
 	is_active: boolean;
+	adapter_name?: string;
+	adapter_config?: AdapterConfig;
 }
 
 // Raw directory data - IDs will be generated from URLs
@@ -70,7 +81,13 @@ const RAW_DIRECTORIES: Omit<Directory, 'id'>[] = [
 		listing_fee: null,
 		review_time_days: 1,
 		approval_rate: 0.85,
-		is_active: true
+		is_active: true,
+		adapter_name: 'producthunt',
+		adapter_config: {
+			requires_login: true,
+			login_url: 'https://www.producthunt.com/login',
+			multi_step: true
+		}
 	},
 	{
 		name: 'Hacker News',
@@ -261,7 +278,12 @@ const RAW_DIRECTORIES: Omit<Directory, 'id'>[] = [
 		listing_fee: null,
 		review_time_days: 5,
 		approval_rate: 0.85,
-		is_active: true
+		is_active: true,
+		adapter_name: 'crunchbase',
+		adapter_config: {
+			requires_login: true,
+			login_url: 'https://www.crunchbase.com/login'
+		}
 	},
 	{
 		name: 'AngelList',
@@ -395,7 +417,12 @@ const RAW_DIRECTORIES: Omit<Directory, 'id'>[] = [
 		listing_fee: null,
 		review_time_days: 7,
 		approval_rate: 0.60,
-		is_active: true
+		is_active: true,
+		adapter_name: 'betalist',
+		adapter_config: {
+			requires_login: true,
+			login_url: 'https://betalist.com/users/sign_in'
+		}
 	},
 	{
 		name: 'Indie Hackers',
@@ -416,7 +443,12 @@ const RAW_DIRECTORIES: Omit<Directory, 'id'>[] = [
 		listing_fee: null,
 		review_time_days: 1,
 		approval_rate: 0.95,
-		is_active: true
+		is_active: true,
+		adapter_name: 'indiehackers',
+		adapter_config: {
+			requires_login: true,
+			login_url: 'https://www.indiehackers.com/sign-in'
+		}
 	},
 	{
 		name: 'Dev.to',

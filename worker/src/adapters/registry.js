@@ -1,4 +1,8 @@
 import { GenericAdapter } from './generic.js';
+import { BetaListAdapter } from './betalist.js';
+import { IndieHackersAdapter } from './indiehackers.js';
+import { CrunchbaseAdapter } from './crunchbase.js';
+import { ProductHuntAdapter } from './producthunt.js';
 
 /**
  * Registry of all available adapters.
@@ -7,10 +11,11 @@ import { GenericAdapter } from './generic.js';
 const adapters = {
   generic: new GenericAdapter(),
 
-  // Add custom adapters for specific directories:
-  // betalist: new BetaListAdapter(),
-  // producthunt: new ProductHuntAdapter(),
-  // indiehackers: new IndieHackersAdapter(),
+  // Directory-specific adapters
+  betalist: new BetaListAdapter(),
+  indiehackers: new IndieHackersAdapter(),
+  crunchbase: new CrunchbaseAdapter(),
+  producthunt: new ProductHuntAdapter(),
 };
 
 /**

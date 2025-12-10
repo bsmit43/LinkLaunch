@@ -1,90 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
-import puppeteer from 'puppeteer-core';
-import { spawn } from 'child_process';
 import { getAdapter } from '../adapters/registry.js';
-import { existsSync } from 'fs';
-import { homedir } from 'os';
-import path from 'path';
+import { browserManager } from '../lib/browserManager.js';
+import { classifyError, ErrorCategory } from '../utils/errorClassifier.js';
+import { getRetryStrategy, calculateNextRetry } from '../utils/retryStrategy.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
-
-// Reusable browser instance
-let browserInstance = null;
-let lightpandaProcess = null;
-
-// Find Lightpanda binary path
-function getLightpandaPath() {
-  // Get directory where this file is located
-  const __dirname = path.dirname(new URL(import.meta.url).pathname);
-  // Go up from src/routes to worker root, then to bin
-  const projectBin = path.join(__dirname, '..', '..', 'bin', 'lightpanda');
-
-  const paths = [
-    // Project bin directory (where postinstall puts it - primary location)
-    projectBin,
-    path.join(process.cwd(), 'bin', 'lightpanda'),
-    // Fallback locations
-    path.join(homedir(), '.lightpanda', 'lightpanda'),
-    '/opt/render/.lightpanda/lightpanda',
-    path.join(process.cwd(), 'lightpanda'),
-    '/usr/local/bin/lightpanda'
-  ];
-
-  console.log('Searching for Lightpanda binary...');
-  for (const p of paths) {
-    console.log(`  Checking: ${p} - exists: ${existsSync(p)}`);
-    if (existsSync(p)) {
-      console.log(`Found Lightpanda at: ${p}`);
-      return p;
-    }
-  }
-
-  throw new Error(`Lightpanda binary not found. Searched: ${paths.join(', ')}`);
-}
-
-async function getBrowser() {
-  if (browserInstance && browserInstance.isConnected()) {
-    return browserInstance;
-  }
-
-  // Start Lightpanda if not running
-  if (!lightpandaProcess) {
-    const lightpandaBin = getLightpandaPath();
-    console.log(`Starting Lightpanda from ${lightpandaBin}...`);
-
-    lightpandaProcess = spawn(lightpandaBin, ['serve', '--host', '127.0.0.1', '--port', '9222'], {
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-
-    lightpandaProcess.stdout.on('data', (data) => {
-      console.log(`Lightpanda: ${data}`);
-    });
-
-    lightpandaProcess.stderr.on('data', (data) => {
-      console.error(`Lightpanda error: ${data}`);
-    });
-
-    lightpandaProcess.on('error', (err) => {
-      console.error('Failed to start Lightpanda:', err);
-      lightpandaProcess = null;
-    });
-
-    // Give it a moment to start
-    await new Promise(r => setTimeout(r, 2000));
-    console.log('Lightpanda started');
-  }
-
-  // Connect via Puppeteer
-  browserInstance = await puppeteer.connect({
-    browserWSEndpoint: 'ws://127.0.0.1:9222'
-  });
-
-  console.log('Connected to Lightpanda');
-  return browserInstance;
-}
 
 export async function processQueueRoute(request, reply) {
   // Verify cron secret
@@ -122,10 +45,24 @@ export async function processQueueRoute(request, reply) {
 
     console.log(`Found ${jobs.length} jobs to process`);
 
-    const browser = await getBrowser();
     const results = [];
 
     for (const job of jobs) {
+      // Get fresh browser for EACH job (with health check)
+      let browser;
+      try {
+        browser = await browserManager.ensureBrowser();
+      } catch (browserError) {
+        console.error(`Failed to get browser for job ${job.id}:`, browserError.message);
+        results.push({
+          id: job.id,
+          directory: job.directory?.name || 'Unknown',
+          success: false,
+          error: `Browser unavailable: ${browserError.message}`
+        });
+        continue; // Skip to next job instead of failing entire batch
+      }
+
       const result = await processJob(browser, job);
       results.push(result);
 
@@ -155,11 +92,16 @@ async function processJob(browser, job) {
 
   console.log(`\nProcessing: ${directory.name}`);
 
-  // Mark as in_progress
+  // Build description that will be used (same logic as content below)
+  const descriptionToUse = website.description_medium || website.description_long || website.description_short || website.tagline;
+
+  // Mark as in_progress and save what will be submitted
   await supabase
     .from('submissions')
     .update({
       status: 'in_progress',
+      title_used: website.name,
+      description_used: descriptionToUse,
       updated_at: new Date().toISOString()
     })
     .eq('id', id);
@@ -203,6 +145,8 @@ async function processJob(browser, job) {
           status: 'submitted',
           submitted_at: new Date().toISOString(),
           listing_url: result.confirmationUrl || result.liveUrl,
+          title_used: website.name,
+          description_used: content.long_description || content.short_description || website.tagline,
           updated_at: new Date().toISOString()
         })
         .eq('id', id);
@@ -220,26 +164,73 @@ async function processJob(browser, job) {
       try {
         await page.close();
       } catch (e) {
-        // Ignore close errors
+        // Page may already be invalid if browser crashed
       }
     }
 
-    const newRetryCount = (retry_count || 0) + 1;
-    const shouldRetry = newRetryCount < 3;
+    // Classify the error
+    const classification = classifyError(error.message, {
+      hasAdapterConfig: Object.keys(directory.adapter_config || {}).length > 0,
+      adapterName: directory.adapter_name
+    });
 
-    // Exponential backoff: 5min, 20min, 80min
-    const backoffMinutes = 5 * Math.pow(4, newRetryCount - 1);
-    const nextRetryAt = new Date(Date.now() + backoffMinutes * 60 * 1000);
+    console.log(`Error category: ${classification.category}`);
+
+    // Handle special case: already submitted
+    if (classification.markAsSubmitted) {
+      await supabase
+        .from('submissions')
+        .update({
+          status: 'submitted',
+          error_message: 'Detected as already submitted',
+          error_category: classification.category,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      return { id, directory: directory.name, success: true, note: 'Already submitted' };
+    }
+
+    // Handle browser restart for infrastructure errors
+    if (classification.requiresBrowserRestart) {
+      console.log('Browser crash detected - cleaning up for next job');
+      await browserManager.cleanup();
+    }
+
+    // Get retry strategy based on error category
+    const infrastructureRetries = job.infrastructure_retries || 0;
+    const strategy = getRetryStrategy(
+      classification.category,
+      retry_count || 0,
+      infrastructureRetries
+    );
+
+    // Calculate updates
+    const updates = {
+      error_message: error.message,
+      error_category: classification.category,
+      updated_at: new Date().toISOString()
+    };
+
+    if (strategy.shouldRetry) {
+      updates.status = 'pending';
+      if (strategy.incrementRetryCount) {
+        updates.retry_count = (retry_count || 0) + 1;
+      }
+      if (strategy.incrementInfraRetries) {
+        updates.infrastructure_retries = infrastructureRetries + 1;
+      }
+      if (!strategy.immediateRetry && strategy.delayMinutes > 0) {
+        updates.next_retry_at = calculateNextRetry(strategy.delayMinutes).toISOString();
+      }
+    } else {
+      updates.status = strategy.status || 'failed';
+      updates.next_retry_at = null;
+    }
 
     await supabase
       .from('submissions')
-      .update({
-        status: shouldRetry ? 'pending' : 'failed',
-        retry_count: newRetryCount,
-        error_message: error.message,
-        next_retry_at: shouldRetry ? nextRetryAt.toISOString() : null,
-        updated_at: new Date().toISOString()
-      })
+      .update(updates)
       .eq('id', id);
 
     return {
@@ -247,7 +238,9 @@ async function processJob(browser, job) {
       directory: directory.name,
       success: false,
       error: error.message,
-      willRetry: shouldRetry
+      errorCategory: classification.category,
+      willRetry: strategy.shouldRetry,
+      nextRetryAt: updates.next_retry_at
     };
   }
 }

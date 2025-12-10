@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { processQueueRoute } from './routes/processQueue.js';
 import { generateContentRoute } from './routes/generateContent.js';
+import { browserManager } from './lib/browserManager.js';
 
 const fastify = Fastify({
   logger: true,
@@ -18,15 +19,53 @@ fastify.get('/', async () => ({
   timestamp: new Date().toISOString()
 }));
 
-// Health check endpoint for Render
-fastify.get('/health', async () => ({
-  status: 'healthy',
-  timestamp: new Date().toISOString()
-}));
+// Enhanced health check with browser status
+fastify.get('/health', async () => {
+  const browserStatus = browserManager.getStatus();
+  return {
+    status: browserStatus.browserConnected ? 'healthy' : 'degraded',
+    browser: browserStatus,
+    timestamp: new Date().toISOString()
+  };
+});
 
 // Main routes
 fastify.post('/process-queue', processQueueRoute);
 fastify.post('/generate-content', generateContentRoute);
+
+// Graceful shutdown handler
+async function gracefulShutdown(signal) {
+  console.log(`Received ${signal}, shutting down gracefully...`);
+
+  try {
+    // Stop accepting new requests
+    await fastify.close();
+
+    // Clean up browser resources
+    await browserManager.shutdown();
+
+    console.log('Graceful shutdown complete');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught errors - cleanup browser before exit
+process.on('uncaughtException', async (err) => {
+  console.error('Uncaught exception:', err);
+  await browserManager.cleanup();
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled rejection at:', promise, 'reason:', reason);
+  // Don't exit, just log
+});
 
 // Start server
 const port = process.env.PORT || 3000;

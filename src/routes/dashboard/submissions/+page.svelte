@@ -75,25 +75,25 @@
 	<div class="flex flex-wrap gap-2 mb-6">
 		<button
 			class="px-4 py-2 rounded-lg text-sm font-medium transition {statusFilter === 'all' ? 'bg-primary/10 text-primary border border-primary/20' : 'text-muted-foreground hover:text-white hover:bg-white/5 border border-white/10'}"
-			on:click={() => statusFilter = 'all'}
+			onclick={() => statusFilter = 'all'}
 		>
 			All ({submissions.length})
 		</button>
 		<button
 			class="px-4 py-2 rounded-lg text-sm font-medium transition {statusFilter === 'pending' ? 'bg-primary/10 text-primary border border-primary/20' : 'text-muted-foreground hover:text-white hover:bg-white/5 border border-white/10'}"
-			on:click={() => statusFilter = 'pending'}
+			onclick={() => statusFilter = 'pending'}
 		>
 			Pending
 		</button>
 		<button
 			class="px-4 py-2 rounded-lg text-sm font-medium transition {statusFilter === 'approved' ? 'bg-primary/10 text-primary border border-primary/20' : 'text-muted-foreground hover:text-white hover:bg-white/5 border border-white/10'}"
-			on:click={() => statusFilter = 'approved'}
+			onclick={() => statusFilter = 'approved'}
 		>
 			Approved
 		</button>
 		<button
 			class="px-4 py-2 rounded-lg text-sm font-medium transition {statusFilter === 'rejected' ? 'bg-primary/10 text-primary border border-primary/20' : 'text-muted-foreground hover:text-white hover:bg-white/5 border border-white/10'}"
-			on:click={() => statusFilter = 'rejected'}
+			onclick={() => statusFilter = 'rejected'}
 		>
 			Rejected
 		</button>
@@ -148,8 +148,21 @@
 							<tr class="border-b border-white/5 hover:bg-white/5">
 								<td class="px-6 py-4">
 									<div class="flex items-center gap-3">
-										<div class="h-8 w-8 rounded bg-white/10 flex items-center justify-center text-sm">
-											🌐
+										<div class="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden">
+											{#if submission.directory?.url}
+												<img
+													src="https://www.google.com/s2/favicons?domain={new URL(submission.directory.url).hostname}&sz=64"
+													alt={submission.directory?.name}
+													class="h-5 w-5"
+													onerror={(e) => {
+														e.currentTarget.style.display = 'none';
+														e.currentTarget.nextElementSibling.style.display = 'block';
+													}}
+												/>
+												<span class="hidden text-sm">🌐</span>
+											{:else}
+												<span class="text-sm">🌐</span>
+											{/if}
 										</div>
 										<span class="text-white font-medium">{submission.directory?.name}</span>
 									</div>
