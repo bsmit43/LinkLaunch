@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
-import { lightpanda } from '@lightpanda/browser';
 import puppeteer from 'puppeteer-core';
+import { spawn } from 'child_process';
 import { getAdapter } from '../adapters/registry.js';
+import { existsSync } from 'fs';
+import { homedir } from 'os';
+import path from 'path';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -12,6 +15,25 @@ const supabase = createClient(
 let browserInstance = null;
 let lightpandaProcess = null;
 
+// Find Lightpanda binary path
+function getLightpandaPath() {
+  const paths = [
+    path.join(homedir(), '.lightpanda', 'lightpanda'),
+    '/opt/render/.lightpanda/lightpanda',
+    path.join(process.cwd(), 'lightpanda'),
+    '/usr/local/bin/lightpanda'
+  ];
+
+  for (const p of paths) {
+    if (existsSync(p)) {
+      console.log(`Found Lightpanda at: ${p}`);
+      return p;
+    }
+  }
+
+  throw new Error(`Lightpanda binary not found. Searched: ${paths.join(', ')}`);
+}
+
 async function getBrowser() {
   if (browserInstance && browserInstance.isConnected()) {
     return browserInstance;
@@ -19,14 +41,28 @@ async function getBrowser() {
 
   // Start Lightpanda if not running
   if (!lightpandaProcess) {
-    console.log('Starting Lightpanda...');
-    lightpandaProcess = await lightpanda.serve({
-      host: '127.0.0.1',
-      port: 9222
+    const lightpandaBin = getLightpandaPath();
+    console.log(`Starting Lightpanda from ${lightpandaBin}...`);
+
+    lightpandaProcess = spawn(lightpandaBin, ['serve', '--host', '127.0.0.1', '--port', '9222'], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    lightpandaProcess.stdout.on('data', (data) => {
+      console.log(`Lightpanda: ${data}`);
+    });
+
+    lightpandaProcess.stderr.on('data', (data) => {
+      console.error(`Lightpanda error: ${data}`);
+    });
+
+    lightpandaProcess.on('error', (err) => {
+      console.error('Failed to start Lightpanda:', err);
+      lightpandaProcess = null;
     });
 
     // Give it a moment to start
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 2000));
     console.log('Lightpanda started');
   }
 

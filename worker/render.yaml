@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     rootDir: worker
-    buildCommand: npm install
+    buildCommand: npm install && bash scripts/install-lightpanda.sh
     startCommand: npm start
     envVars:
       - key: NODE_ENV
