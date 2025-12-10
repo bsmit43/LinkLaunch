@@ -11,6 +11,9 @@
 		{ name: 'Dashboard', href: '/dashboard', icon: '📊' },
 		{ name: 'Websites', href: '/dashboard/websites', icon: '🌐' },
 		{ name: 'Submissions', href: '/dashboard/submissions', icon: '🚀' },
+		{ name: 'Opportunities', href: '/dashboard/opportunities', icon: '💡' },
+		{ name: 'Content', href: '/dashboard/content', icon: '📝' },
+		{ name: 'Analytics', href: '/dashboard/analytics', icon: '📈' },
 		{ name: 'Settings', href: '/dashboard/settings', icon: '⚙️' }
 	];
 

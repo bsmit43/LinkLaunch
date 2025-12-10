@@ -7,6 +7,7 @@
 
 	$: serverStats = data.stats ?? { total: 0, approved: 0, pending: 0, backlinks: 0 };
 	$: recentActivity = data.recentActivity ?? [];
+	$: opportunityStats = data.opportunityStats ?? { haro: 0, newsletters: 0, community: 0, social: 0 };
 
 	// Format stats for display
 	$: stats = [
@@ -15,6 +16,8 @@
 		{ label: 'Pending', value: serverStats.pending, icon: '⏳', change: '0' },
 		{ label: 'Backlinks Built', value: serverStats.backlinks, icon: '🔗', change: '+0' }
 	];
+
+	$: totalOpportunities = opportunityStats.haro + opportunityStats.newsletters + opportunityStats.community;
 </script>
 
 <svelte:head>
@@ -96,19 +99,62 @@
 					</a>
 
 					<a
-						href="/pricing"
+						href="/dashboard/opportunities"
 						class="flex items-center gap-4 p-4 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition group"
 					>
-						<div class="h-12 w-12 rounded-lg bg-green-500/10 flex items-center justify-center text-2xl group-hover:scale-110 transition">
-							⭐
+						<div class="h-12 w-12 rounded-lg bg-yellow-500/10 flex items-center justify-center text-2xl group-hover:scale-110 transition">
+							💡
 						</div>
 						<div>
-							<div class="font-medium text-white">Upgrade Plan</div>
-							<div class="text-sm text-muted-foreground">Get more submissions</div>
+							<div class="font-medium text-white">Opportunities</div>
+							<div class="text-sm text-muted-foreground">HARO, newsletters & more</div>
 						</div>
 					</a>
 				</div>
 			</div>
+
+			<!-- Opportunities Overview -->
+			{#if totalOpportunities > 0}
+				<div class="rounded-xl border border-primary/20 bg-primary/5 p-6 mt-6">
+					<div class="flex items-center justify-between mb-4">
+						<div class="flex items-center gap-2">
+							<span class="text-xl">💡</span>
+							<h2 class="text-lg font-semibold text-white">Pending Opportunities</h2>
+						</div>
+						<a href="/dashboard/opportunities" class="text-sm text-primary hover:underline">View all</a>
+					</div>
+
+					<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+						{#if opportunityStats.haro > 0}
+							<a href="/dashboard/opportunities" class="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition text-center">
+								<div class="text-2xl font-bold text-white">{opportunityStats.haro}</div>
+								<div class="text-xs text-muted-foreground">HARO</div>
+							</a>
+						{/if}
+
+						{#if opportunityStats.newsletters > 0}
+							<a href="/dashboard/opportunities" class="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition text-center">
+								<div class="text-2xl font-bold text-white">{opportunityStats.newsletters}</div>
+								<div class="text-xs text-muted-foreground">Newsletters</div>
+							</a>
+						{/if}
+
+						{#if opportunityStats.community > 0}
+							<a href="/dashboard/opportunities" class="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition text-center">
+								<div class="text-2xl font-bold text-white">{opportunityStats.community}</div>
+								<div class="text-xs text-muted-foreground">Community</div>
+							</a>
+						{/if}
+
+						{#if opportunityStats.social > 0}
+							<a href="/dashboard/content" class="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition text-center">
+								<div class="text-2xl font-bold text-white">{opportunityStats.social}</div>
+								<div class="text-xs text-muted-foreground">Scheduled</div>
+							</a>
+						{/if}
+					</div>
+				</div>
+			{/if}
 
 			<!-- Recent Activity -->
 			<div class="rounded-xl border border-white/10 bg-card p-6 mt-6">

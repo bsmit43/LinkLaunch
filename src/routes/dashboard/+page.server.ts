@@ -2,6 +2,9 @@ import { dev } from '$app/environment';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	const session = await locals.safeGetSession();
+	const userId = session?.user?.id;
+
 	// Fetch all submissions for the user
 	const { data: submissions } = await locals.supabase
 		.from('submissions')
@@ -28,7 +31,60 @@ export const load: PageServerLoad = async ({ locals }) => {
 		time: getRelativeTime(new Date(s.created_at))
 	}));
 
-	return { stats, recentActivity };
+	// Fetch opportunity stats
+	let opportunityStats = {
+		haro: 0,
+		newsletters: 0,
+		community: 0,
+		social: 0
+	};
+
+	if (userId) {
+		// Get website IDs
+		const { data: websites } = await locals.supabase
+			.from('websites')
+			.select('id')
+			.eq('user_id', userId);
+
+		const websiteIds = websites?.map(w => w.id) || [];
+
+		// HARO pitches pending
+		const { count: haroCount } = await locals.supabase
+			.from('haro_pitches')
+			.select('*', { count: 'exact', head: true })
+			.eq('user_id', userId)
+			.eq('status', 'pending_review');
+
+		// Newsletter drafts
+		const { count: newsletterCount } = await locals.supabase
+			.from('newsletter_outreach')
+			.select('*', { count: 'exact', head: true })
+			.in('website_id', websiteIds)
+			.eq('status', 'draft');
+
+		// Community opportunities pending
+		const { count: communityCount } = await locals.supabase
+			.from('qa_opportunities')
+			.select('*', { count: 'exact', head: true })
+			.in('website_id', websiteIds)
+			.eq('status', 'pending_review');
+
+		// Scheduled social posts
+		const { count: socialCount } = await locals.supabase
+			.from('social_posts')
+			.select('*', { count: 'exact', head: true })
+			.eq('user_id', userId)
+			.eq('status', 'scheduled');
+
+		opportunityStats = {
+			haro: haroCount || 0,
+			newsletters: newsletterCount || 0,
+			community: communityCount || 0,
+			social: socialCount || 0
+		};
+	}
+
+	return { stats, recentActivity, opportunityStats };
 };
 
 function getRelativeTime(date: Date): string {
