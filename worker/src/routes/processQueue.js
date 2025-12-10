@@ -17,14 +17,25 @@ let lightpandaProcess = null;
 
 // Find Lightpanda binary path
 function getLightpandaPath() {
+  // Get directory where this file is located
+  const __dirname = path.dirname(new URL(import.meta.url).pathname);
+  // Go up from src/routes to worker root, then to bin
+  const projectBin = path.join(__dirname, '..', '..', 'bin', 'lightpanda');
+
   const paths = [
+    // Project bin directory (where postinstall puts it - primary location)
+    projectBin,
+    path.join(process.cwd(), 'bin', 'lightpanda'),
+    // Fallback locations
     path.join(homedir(), '.lightpanda', 'lightpanda'),
     '/opt/render/.lightpanda/lightpanda',
     path.join(process.cwd(), 'lightpanda'),
     '/usr/local/bin/lightpanda'
   ];
 
+  console.log('Searching for Lightpanda binary...');
   for (const p of paths) {
+    console.log(`  Checking: ${p} - exists: ${existsSync(p)}`);
     if (existsSync(p)) {
       console.log(`Found Lightpanda at: ${p}`);
       return p;
