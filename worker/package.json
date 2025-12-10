@@ -7,7 +7,8 @@
     "dev": "node --watch src/index.js"
   },
   "dependencies": {
-    "puppeteer": "^23.0.0",
+    "@lightpanda/browser": "^1.0.1",
+    "puppeteer-core": "^23.0.0",
     "fastify": "^4.25.0",
     "@fastify/cors": "^8.5.0",
     "@supabase/supabase-js": "^2.39.0",

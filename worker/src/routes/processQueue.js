@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import puppeteer from 'puppeteer';
+import { lightpanda } from '@lightpanda/browser';
+import puppeteer from 'puppeteer-core';
 import { getAdapter } from '../adapters/registry.js';
 
 const supabase = createClient(
@@ -9,25 +10,32 @@ const supabase = createClient(
 
 // Reusable browser instance
 let browserInstance = null;
+let lightpandaProcess = null;
 
 async function getBrowser() {
-  if (browserInstance && browserInstance.connected) {
+  if (browserInstance && browserInstance.isConnected()) {
     return browserInstance;
   }
 
-  console.log('Launching browser...');
-  browserInstance = await puppeteer.launch({
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--single-process'
-    ]
+  // Start Lightpanda if not running
+  if (!lightpandaProcess) {
+    console.log('Starting Lightpanda...');
+    lightpandaProcess = await lightpanda.serve({
+      host: '127.0.0.1',
+      port: 9222
+    });
+
+    // Give it a moment to start
+    await new Promise(r => setTimeout(r, 1000));
+    console.log('Lightpanda started');
+  }
+
+  // Connect via Puppeteer
+  browserInstance = await puppeteer.connect({
+    browserWSEndpoint: 'ws://127.0.0.1:9222'
   });
 
-  console.log('Browser launched');
+  console.log('Connected to Lightpanda');
   return browserInstance;
 }
 
