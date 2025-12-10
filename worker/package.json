@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "postinstall": "bash scripts/install-lightpanda.sh || echo 'Lightpanda install skipped (Windows/non-Linux)'",
     "install-lightpanda": "bash scripts/install-lightpanda.sh"
   },
   "dependencies": {
