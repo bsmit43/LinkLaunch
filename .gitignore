@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+worker/node_modules/
+
+# Build outputs
+.svelte-kit/
+build/
+dist/
+
+# Environment variables (NEVER commit these!)
+.env
+.env.local
+.env.*.local
+worker/.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+
+# Misc
+*.pem
+.vercel
+.netlify

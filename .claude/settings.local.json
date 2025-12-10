@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev:*)",
+      "WebFetch(domain:getmorebacklinks.org)",
+      "Bash(npm run check:*)",
+      "Bash(node -e:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm run seed:directories:*)",
+      "Bash(npx tsx:*)",
+      "Bash(mkdir:*)",
+      "Bash(git init:*)",
+      "Bash(gh auth status:*)",
+      "Bash(where gh:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(del /f nul)"
+    ]
+  }
+}
